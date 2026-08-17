@@ -1,0 +1,34 @@
+name: Cleanup AppleDouble files
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/cleanup-appledouble.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove macOS resource fork files
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '._*' -delete
+          rm -f .github/workflows/cleanup-appledouble.yml
+          rmdir .github/workflows .github 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No cleanup changes."
+            exit 0
+          fi
+          git commit -m "Remove macOS resource fork files"
+          git push
