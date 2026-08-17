@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - clean-voip-billing-template.tar.gz.b64.part-*
       - .github/workflows/unpack-template.yml
+      - clean-voip-billing-template.tar.gz.b64.part-*
 
 permissions:
   contents: write
@@ -17,29 +17,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Unpack clean template
+      - name: Download and unpack clean template
         shell: bash
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          parts=(clean-voip-billing-template.tar.gz.b64.part-*)
-          if [ ${#parts[@]} -eq 0 ]; then
-            echo "Archive parts are absent, nothing to unpack."
-            exit 0
+          page_url="https://tmpfiles.org/wmw5CeZza5tt/clean-voip-billing-template.tar.gz"
+          expected_sha="3ca6c66762055333ccfc8113ca3fd238caed0c5e265000878cd1dc36b38d0e07"
+          download_url="$(curl -fsSL "$page_url" | grep -oE 'https://tmpfiles\.org/dl/[^"]+' | head -n 1)"
+          if [ -z "$download_url" ]; then
+            echo "Could not find tmpfiles download URL."
+            exit 1
           fi
-          if [ ${#parts[@]} -ne 5 ]; then
-            echo "Expected 5 archive parts, found ${#parts[@]}. Waiting for all parts."
-            exit 0
-          fi
-          : > /tmp/clean-template.b64
-          for part in "${parts[@]}"; do
-            case "$part" in
-              *part-05) head -c 3116 "$part" >> /tmp/clean-template.b64 ;;
-              *) head -c 35000 "$part" >> /tmp/clean-template.b64 ;;
-            esac
-          done
+          curl -fsSL "$download_url" -o /tmp/clean-template.tar.gz
+          echo "$expected_sha  /tmp/clean-template.tar.gz" | sha256sum -c -
           mkdir -p /tmp/clean-template
-          base64 -d /tmp/clean-template.b64 | tar -xzf - -C /tmp/clean-template
+          tar -xzf /tmp/clean-template.tar.gz -C /tmp/clean-template
           rsync -a --delete --exclude '.git' /tmp/clean-template/clean-voip-billing/ ./
           rm -f clean-voip-billing-template.tar.gz.b64.part-*
           git config user.name "github-actions[bot]"
