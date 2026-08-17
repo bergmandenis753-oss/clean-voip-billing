@@ -27,8 +27,19 @@ jobs:
             echo "Archive parts are absent, nothing to unpack."
             exit 0
           fi
+          if [ ${#parts[@]} -ne 5 ]; then
+            echo "Expected 5 archive parts, found ${#parts[@]}. Waiting for all parts."
+            exit 0
+          fi
+          : > /tmp/clean-template.b64
+          for part in "${parts[@]}"; do
+            case "$part" in
+              *part-05) head -c 3116 "$part" >> /tmp/clean-template.b64 ;;
+              *) head -c 35000 "$part" >> /tmp/clean-template.b64 ;;
+            esac
+          done
           mkdir -p /tmp/clean-template
-          cat "${parts[@]}" | base64 -d | tar -xzf - -C /tmp/clean-template
+          base64 -d /tmp/clean-template.b64 | tar -xzf - -C /tmp/clean-template
           rsync -a --delete --exclude '.git' /tmp/clean-template/clean-voip-billing/ ./
           rm -f clean-voip-billing-template.tar.gz.b64.part-*
           git config user.name "github-actions[bot]"
