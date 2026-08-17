@@ -1,0 +1,16 @@
+<configuration name="acl.conf" description="Network Lists">
+  <network-lists>
+    <list name="lan" default="allow">
+      <node type="deny" cidr="192.168.42.0/24"/>
+      <node type="allow" cidr="192.168.42.42/32"/>
+    </list>
+
+    <list name="domains" default="deny">
+      <node type="allow" domain="$${domain}"/>
+      <!-- Add your provider/client IPs here if you manage ACLs in FreeSWITCH. -->
+      <!-- Example:
+      <node type="allow" cidr="203.0.113.10/32"/>
+      -->
+    </list>
+  </network-lists>
+</configuration>

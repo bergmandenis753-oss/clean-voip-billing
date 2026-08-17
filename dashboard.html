@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>VoIP Billing — биллинг</title>
+<style>
+  :root { --bg:#0f1420; --card:#1a2130; --line:#2a3446; --txt:#e6ebf2; --mut:#8a96a8; --accent:#3f8cff; --good:#37c26a; --bad:#ff5a5a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif; }
+  header { padding:18px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:18px; margin:0; font-weight:600; }
+  header .sub { color:var(--mut); font-size:13px; }
+  main { padding:20px 24px; max-width:1200px; margin:0 auto; }
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .card .lbl { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .card .val { font-size:26px; font-weight:600; margin-top:6px; }
+  section { margin-bottom:26px; }
+  .sec-head { display:flex; align-items:center; gap:12px; margin:0 0 10px; }
+  h2 { font-size:15px; font-weight:600; margin:0; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  th,td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); }
+  th { color:var(--mut); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  tr:last-child td { border-bottom:none; }
+  .badge { padding:2px 8px; border-radius:20px; font-size:12px; }
+  .on { background:rgba(55,194,106,.15); color:var(--good); }
+  .off { background:rgba(138,150,168,.15); color:var(--mut); }
+  button { background:var(--accent); color:#fff; border:none; border-radius:7px; padding:6px 12px; cursor:pointer; font-size:13px; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--txt); }
+  button.small { padding:4px 9px; font-size:12px; }
+  button.danger { background:transparent; border:1px solid var(--line); color:var(--bad); }
+  button:hover { opacity:.9; }
+  .right { text-align:right; }
+  .mut { color:var(--mut); }
+  dialog { background:var(--card); color:var(--txt); border:1px solid var(--line); border-radius:12px; padding:20px; width:340px; }
+  dialog.wide { width:min(680px, calc(100vw - 32px)); }
+  dialog h3 { margin:0 0 14px; font-size:15px; }
+  dialog label { display:block; font-size:13px; color:var(--mut); margin:0 0 5px; }
+  dialog input, dialog select { width:100%; padding:8px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--txt); margin-bottom:13px; }
+  dialog .row { display:flex; gap:8px; justify-content:flex-end; }
+  .empty { padding:16px; color:var(--mut); }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:0 0 22px; }
+  .check { border:1px solid var(--line); border-radius:10px; padding:12px; margin:2px 0 14px; background:#111827; }
+  .check.ok { border-color:rgba(55,194,106,.55); }
+  .check.bad { border-color:rgba(255,90,90,.55); }
+  .check .title { font-weight:600; margin-bottom:7px; }
+  .check .line { color:var(--mut); font-size:13px; margin-top:3px; word-break:break-all; }
+  .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; background:var(--card); }
+  .table-wrap table { border:none; border-radius:0; min-width:1680px; }
+  .cdr-table th, .cdr-table td { vertical-align:middle; white-space:nowrap; }
+  .cdr-table td.wrap { white-space:normal; min-width:150px; }
+  .cdr-table tr.bad-call td { background:rgba(255,90,90,.06); }
+  .cdr-table tr.good-call td { background:rgba(55,194,106,.035); }
+  .badge.badge-bad { background:rgba(255,90,90,.15); color:var(--bad); }
+  .badge.badge-warn { background:rgba(255,191,71,.14); color:#ffbf47; }
+  .hit-table th, .hit-table td { vertical-align:middle; white-space:nowrap; }
+  .hit-table td.wrap { white-space:normal; min-width:160px; }
+  .hit-table tr.rejected-hit td { background:rgba(255,90,90,.055); }
+  .hit-table tr.allowed-hit td { background:rgba(55,194,106,.035); }
+  .refresh-status { color:var(--mut); font-size:12px; margin-right:10px; }
+  .ai-box { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .ai-log { min-height:120px; max-height:360px; overflow:auto; padding:14px; white-space:pre-wrap; }
+  .ai-msg { margin:0 0 12px; color:var(--txt); }
+  .ai-msg.user { color:#b9d3ff; }
+  .ai-msg.muted { color:var(--mut); }
+  .ai-form { display:flex; gap:10px; padding:12px; border-top:1px solid var(--line); }
+  .ai-form input { flex:1; min-width:0; border:1px solid var(--line); background:var(--bg); color:var(--txt); border-radius:7px; padding:8px; }
+  .ai-actions { display:flex; flex-wrap:wrap; gap:8px; padding:0 12px 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>VoIP Billing</h1>
+  <span class="sub">prepaid-биллинг · дашборд</span>
+  <span style="margin-left:auto"><span class="refresh-status" id="refresh-status">обновляю...</span><button class="ghost" onclick="load(true)">Обновить</button></span>
+</header>
+
+<main>
+  <datalist id="direction-options"></datalist>
+
+  <div class="cards">
+    <div class="card"><div class="lbl">Суммарный баланс</div><div class="val" id="c-balance">—</div></div>
+    <div class="card"><div class="lbl">Маржа за сегодня</div><div class="val" id="c-today">—</div></div>
+    <div class="card"><div class="lbl">Маржа за месяц</div><div class="val" id="c-month">—</div></div>
+  </div>
+
+  <div class="toolbar">
+    <button onclick="openDirectionDlg()">+ Направление</button>
+    <span class="mut">Открыть клиенту страну через выбранного терминатора и сразу проверить цепочку.</span>
+  </div>
+
+  <section>
+    <div class="sec-head"><h2>Оригинаторы (кому даём роут)</h2><button class="small" onclick="clientDlg.showModal()">+ Оригинатор</button></div>
+    <table>
+      <thead><tr><th>Имя</th><th>IP</th><th class="right">Баланс</th><th>Статус</th><th></th></tr></thead>
+      <tbody id="t-clients"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Терминационные группы (gateway/IP аккаунты)</h2><button class="small" onclick="groupDlg.showModal()">+ Группа</button></div>
+    <table>
+      <thead><tr><th>Имя аккаунта</th><th>IP</th><th>FreeSWITCH gateway</th><th>Статус</th><th></th></tr></thead>
+      <tbody id="t-groups"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Терминаторы (кто даёт нам роут)</h2><button class="small" onclick="openTermDlg()">+ Терминатор</button></div>
+    <table>
+      <thead><tr><th>Название</th><th>Группа</th><th>IP группы</th><th>Направление</th><th>Префикс</th><th>Техпрефикс</th><th class="right">Закупка</th><th>Статус</th><th></th></tr></thead>
+      <tbody id="t-routes"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Роуты оригинаторов (направление · терминатор · цена)</h2><button class="small" onclick="openRateDlg()">+ Роут</button></div>
+    <table>
+      <thead><tr><th>Оригинатор</th><th>Терминатор</th><th>Направление</th><th>Клиентский тех</th><th>Префикс</th><th class="right">Продажа</th><th></th></tr></thead>
+      <tbody id="t-rates"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>SIP хиты · последние 50 INVITE</h2></div>
+    <div class="table-wrap">
+      <table class="hit-table">
+        <thead><tr>
+          <th>Время</th><th>IP:порт</th><th>CLID</th><th>Вх. номер</th><th>Клиент</th>
+          <th>Вх. тех</th><th>Номер дальше</th><th>Статус</th><th>Причина</th>
+          <th>Терминатор</th><th>Куда шлём</th><th>Call-ID</th><th>User-Agent</th>
+        </tr></thead>
+        <tbody id="t-hits"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>CDR анализ · последние 10 звонков</h2></div>
+    <div class="table-wrap">
+      <table class="cdr-table">
+        <thead><tr>
+          <th>Вх. аккаунт</th><th>Вх. IP</th><th>Вх. CLID</th><th>Вх. тех</th><th>Вх. тел. номер</th>
+          <th class="right">Вх. тариф</th><th>Исх. аккаунт</th><th>Исх. тех</th><th>Исх. номер</th>
+          <th class="right">Исх. тариф</th><th>Направление</th><th>Схема</th><th>Код отбоя</th>
+          <th>Инициатор</th><th class="right">Длит., с</th><th class="right">Списано</th><th class="right">Маржа</th><th>Время</th>
+        </tr></thead>
+        <tbody id="t-cdr"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>AI помощник по звонкам</h2><span class="mut" id="ai-state">готов</span></div>
+    <div class="ai-box">
+      <div class="ai-log" id="ai-log">
+        <div class="ai-msg muted">Спроси про последний звонок, 408/503, баланс, whitelist или почему CDR не посчитался.</div>
+      </div>
+      <div class="ai-actions">
+        <button class="small ghost" onclick="askAi('Разбери последний SIP-хит полностью: PCAP, CDR, маршрут, кто виноват и что проверить.')">Последний хит</button>
+        <button class="small ghost" onclick="askAi('Почему последний звонок не списал баланс? Был ли настоящий connect/200 OK?')">Баланс</button>
+        <button class="small ghost" onclick="askAi('Покажи по последним попыткам: какие IP не в whitelist и какие звонки ушли на терминатора.')">Whitelist</button>
+        <button class="small ghost" onclick="askAi('Есть ли в последних звонках early media или voicemail без 200 OK?')">Early media</button>
+      </div>
+      <form class="ai-form" id="ai-form">
+        <input id="ai-question" placeholder="Например: почему последний звонок дал 408?">
+        <button type="submit">Разобрать</button>
+      </form>
+    </div>
+  </section>
+</main>
+
+<!-- Добавить клиента -->
+<dialog id="client-dlg">
+  <h3>Новый оригинатор</h3>
+  <form id="client-form">
+    <label>Имя</label><input id="cl-name" required autofocus>
+    <label>SIP IP (whitelist)</label><input id="cl-ip" placeholder="203.0.113.10" required>
+    <label>Валюта</label><input id="cl-cur" value="USD" required>
+    <label>Стартовый баланс (в валюте)</label><input id="cl-bal" type="number" step="0.01" min="0" value="0">
+    <div class="row"><button type="button" class="ghost" onclick="clientDlg.close()">Отмена</button><button type="submit">Создать</button></div>
+  </form>
+</dialog>
+
+<!-- Добавить терминационную группу -->
+<dialog id="group-dlg">
+  <h3>Новая терминационная группа</h3>
+  <form id="group-form">
+    <label>Имя аккаунта / группы</label><input id="gr-name" placeholder="Provider A" required autofocus>
+    <label>IP аккаунта (через запятую)</label><input id="gr-ips" placeholder="203.0.113.10, 203.0.113.11" required>
+    <label>FreeSWITCH gateway (можно пусто)</label><input id="gr-gw" placeholder="provider_a или пусто для direct IP">
+    <label style="display:flex;align-items:center;gap:8px"><input id="gr-active" type="checkbox" checked style="width:auto;margin:0"> Активна</label>
+    <div class="row"><button type="button" class="ghost" onclick="groupDlg.close()">Отмена</button><button type="submit">Создать</button></div>
+  </form>
+</dialog>
+
+<!-- Добавить роут -->
+<dialog id="route-dlg">
+  <h3>Новый терминатор</h3>
+  <form id="route-form">
+    <label>Название (поставщик)</label><input id="rt-name" placeholder="Provider A" required autofocus>
+    <label>Терминационная группа</label><select id="rt-group" required></select>
+    <label>Направление</label><input id="rt-dest" list="direction-options" value="Australia" required>
+    <label>Префикс</label><input id="rt-prefix" value="61" required>
+    <label>Техпрефикс поставщика (можно пусто)</label><input id="rt-tech" placeholder="999001">
+    <label>Закупочная цена за минуту (в валюте)</label><input id="rt-cost" type="number" step="0.0001" min="0" required>
+    <label>Billing cycle</label><select id="rt-billing-cycle"><option value="1/1">1/1</option><option value="60/1">60/1</option></select>
+    <label style="display:flex;align-items:center;gap:8px"><input id="rt-active" type="checkbox" checked style="width:auto;margin:0"> Сделать активным</label>
+    <div class="row"><button type="button" class="ghost" onclick="routeDlg.close()">Отмена</button><button type="submit">Создать</button></div>
+  </form>
+</dialog>
+
+<!-- Добавить тариф клиента -->
+<dialog id="rate-dlg">
+  <h3>Новый роут оригинатора</h3>
+  <form id="rate-form">
+    <label>Оригинатор</label><select id="ra-client" required></select>
+    <label>Терминатор (через кого слать)</label><select id="ra-term" required></select>
+    <label>Направление</label><input id="ra-dest" list="direction-options" value="Australia" required>
+    <label>Клиентский техпрефикс (можно пусто)</label><input id="ra-client-tech" placeholder="101">
+    <label>Префикс</label><input id="ra-prefix" value="61" required>
+    <label>Цена продажи за минуту (в валюте)</label><input id="ra-sell" type="number" step="0.0001" min="0" required>
+    <label>Billing cycle</label><select id="ra-billing-cycle"><option value="1/1">1/1</option><option value="60/1">60/1</option></select>
+    <div class="row"><button type="button" class="ghost" onclick="rateDlg.close()">Отмена</button><button type="submit">Создать</button></div>
+  </form>
+</dialog>
+
+<!-- Мастер направления -->
+<dialog id="direction-dlg" class="wide">
+  <h3>Новое направление для оригинатора</h3>
+  <form id="direction-form">
+    <label>Оригинатор</label><select id="di-client" required></select>
+    <label>Терминатор / поставщик</label><select id="di-term" required></select>
+    <label>Направление</label><input id="di-dest" list="direction-options" placeholder="Czech Republic" required>
+    <label>Префикс страны/направления</label><input id="di-prefix" placeholder="420" required>
+    <label>Клиентский техпрефикс (если клиент шлёт его нам)</label><input id="di-client-tech" placeholder="101">
+    <label>Цена продажи за минуту (в валюте)</label><input id="di-sell" type="number" step="0.0001" min="0.0001" required>
+    <label>Billing cycle</label><select id="di-billing-cycle"><option value="1/1">1/1</option><option value="60/1">60/1</option></select>
+    <label>Тестовый номер (можно пусто)</label><input id="di-test-number" placeholder="101420777123456">
+    <div id="di-preview" class="check" style="display:none"></div>
+    <div class="row">
+      <button type="button" class="ghost" onclick="directionDlg.close()">Отмена</button>
+      <button type="button" class="ghost" onclick="checkDirection()">Проверить</button>
+      <button type="submit">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Пополнить -->
+<dialog id="topup-dlg">
+  <h3>Пополнить баланс</h3>
+  <form id="topup-form">
+    <label>Клиент</label><input id="tu-client" disabled>
+    <label>Сумма (в валюте)</label><input id="tu-amount" type="number" step="0.01" min="0.01" required autofocus>
+    <div class="row"><button type="button" class="ghost" onclick="topupDlg.close()">Отмена</button><button type="submit">Пополнить</button></div>
+  </form>
+</dialog>
+
+<script>
+const clientDlg = document.getElementById('client-dlg');
+const groupDlg  = document.getElementById('group-dlg');
+const routeDlg  = document.getElementById('route-dlg');
+const rateDlg   = document.getElementById('rate-dlg');
+const directionDlg = document.getElementById('direction-dlg');
+const topupDlg  = document.getElementById('topup-dlg');
+let clientMap = {};
+let groupList = [];
+let groupMap = {};
+let termList = [];
+let topupClientId = null;
+let loadInFlight = false;
+let directionList = [];
+let directionMap = {};
+
+const MONEY_SCALE = 10000;
+const money = (u, cur) => ((Number(u)||0)/MONEY_SCALE).toFixed(4) + (cur ? ' ' + cur : '');
+const rate  = (u, cur) => ((Number(u)||0)/MONEY_SCALE).toFixed(4) + (cur ? ' ' + cur : '');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const cycle = v => String(v || '1/1').trim() || '1/1';
+const defaultBillingCycle = (dest, prefix) => {
+  const d = String(dest || '').trim().toLowerCase();
+  const p = String(prefix || '').replace(/\D/g, '');
+  return (d === 'china' || d === 'китай' || p === '86') ? '60/1' : '1/1';
+};
+function syncBillingCycle(destId, prefixId, cycleId) {
+  const el = document.getElementById(cycleId);
+  if (!el) return;
+  el.value = defaultBillingCycle(
+    document.getElementById(destId)?.value,
+    document.getElementById(prefixId)?.value
+  );
+}
+const termLabel = (t, cur = '') => {
+  const parts = [t.name];
+  parts.push(`${t.destination_name} ${t.prefix}`);
+  if (t.tech_prefix) parts.push(`TP ${t.tech_prefix}`);
+  parts.push(`buy ${rate(t.cost_rate_cents, cur)} ${cycle(t.billing_cycle)}`);
+  return parts.filter(Boolean).join(' · ');
+};
+const val = s => {
+  const v = String(s ?? '').trim();
+  return v ? esc(v) : '<span class="mut">—</span>';
+};
+const emptyRow = n => `<tr><td class="empty" colspan="${n}">Нет данных</td></tr>`;
+function parseMoneyUnits(value, label) {
+  const s = String(value ?? '').trim().replace(',', '.');
+  if (!s) return 0;
+  const m = s.match(/^(\d+)(?:\.(\d{0,4}))?$/);
+  if (!m) throw new Error(`${label}: максимум 4 знака после точки`);
+  return Number(m[1]) * MONEY_SCALE + Number((m[2] || '').padEnd(4, '0'));
+}
+const inputMoneyUnits = (id, label) => parseMoneyUnits(document.getElementById(id).value, label);
+
+async function api(path, method, body) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  const r = await fetch(path, {
+    method, headers: {'Content-Type':'application/json', 'X-Money-Scale': String(MONEY_SCALE)},
+    body: body ? JSON.stringify(body) : undefined,
+    signal: controller.signal
+  }).finally(() => clearTimeout(timeout));
+  if (!r.ok) { throw new Error(await r.text()); }
+  return r.json();
+}
+
+function pushAiMessage(text, kind = '') {
+  const log = document.getElementById('ai-log');
+  const div = document.createElement('div');
+  div.className = `ai-msg ${kind}`;
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function askAi(question) {
+  const q = String(question || document.getElementById('ai-question').value || '').trim();
+  if (!q) return;
+  document.getElementById('ai-question').value = '';
+  document.getElementById('ai-state').textContent = 'анализирую...';
+  pushAiMessage('Ты: ' + q, 'user');
+  try {
+    const result = await api('/api/ai/analyze', 'POST', {question: q, limit: 50});
+    const prefix = result.source === 'openai' ? 'AI' : 'Локальный разбор';
+    let text = `${prefix}: ${result.analysis}`;
+    if (result.source !== 'openai' && result.ai_error) {
+      text += `\n\nOpenAI сейчас не подключён/не ответил: ${result.ai_error}`;
+    }
+    if (result.pcap_events_count === 0) {
+      text += '\n\nPCAP-событий пока нет: проверь, запущен ли сборщик на SIP-сервере.';
+    }
+    pushAiMessage(text);
+    document.getElementById('ai-state').textContent =
+      result.source === 'openai' ? 'ответ OpenAI' : 'локальный ответ';
+  } catch (err) {
+    pushAiMessage('Ошибка анализа: ' + err.message, 'muted');
+    document.getElementById('ai-state').textContent = 'ошибка';
+  }
+}
+
+async function load(manual = false) {
+  if (loadInFlight) return;
+  loadInFlight = true;
+  const status = document.getElementById('refresh-status');
+  if (status) status.textContent = manual ? 'обновляю...' : 'автообновление...';
+  try {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  const r = await fetch('/api/dashboard-data', {
+    cache:'no-store',
+    headers: {'X-Money-Scale': String(MONEY_SCALE)},
+    signal: controller.signal
+  }).finally(() => clearTimeout(timeout));
+  if (!r.ok) { throw new Error(await r.text()); }
+  const d = await r.json();
+  const cur = (d.clients[0] && d.clients[0].currency) || '';
+  document.getElementById('c-balance').textContent = money(d.summary.total_balance_cents, cur);
+  document.getElementById('c-today').textContent   = money(d.summary.margin_today_cents, cur);
+  document.getElementById('c-month').textContent   = money(d.summary.margin_month_cents, cur);
+
+  clientMap = {};
+  d.clients.forEach(c => clientMap[c.id] = c);
+  groupList = d.termination_groups || [];
+  groupMap = {};
+  groupList.forEach(g => groupMap[g.id] = g);
+  termList = d.terminators || [];
+  directionList = d.e164_directions || [];
+  directionMap = {};
+  directionList.forEach(x => directionMap[x.country] = x);
+  document.getElementById('direction-options').innerHTML = directionList.map(x =>
+    `<option value="${esc(x.country)}">${esc(x.primary_prefix)} · ${x.prefix_count} префиксов</option>`
+  ).join('');
+
+  document.getElementById('t-clients').innerHTML = d.clients.map(c => `
+    <tr>
+      <td>${esc(c.name)}</td>
+      <td class="mut">${esc(c.sip_ip)}</td>
+      <td class="right">${money(c.balance_cents, c.currency)}</td>
+      <td>${c.active ? '<span class="badge on">активен</span>' : '<span class="badge off">выкл</span>'}</td>
+      <td class="right"><button class="small" onclick="openTopup(${c.id})">+ Пополнить</button></td>
+    </tr>`).join('') || emptyRow(5);
+
+  document.getElementById('t-groups').innerHTML = groupList.map(g => `
+    <tr>
+      <td>${esc(g.name)}</td>
+      <td class="mut">${esc(g.ips || '')}</td>
+      <td>${g.gateway_name ? esc(g.gateway_name) : '<span class="mut">direct IP</span>'}</td>
+      <td>${g.active ? '<span class="badge on">активна</span>' : '<span class="badge off">выкл</span>'}</td>
+      <td class="right"><button class="small danger" onclick="delGroup(${g.id})">✕</button></td>
+    </tr>`).join('') || emptyRow(5);
+
+  document.getElementById('t-routes').innerHTML = d.terminators.map(r => {
+    const c0 = (d.clients[0]||{}).currency || '';
+    const groupName = r.gateway_group_name || ((groupMap[r.gateway_group_id]||{}).name) || '';
+    const groupIps = r.gateway_group_ips || ((groupMap[r.gateway_group_id]||{}).ips) || r.ips || '';
+    return `<tr>
+      <td>${esc(r.name)}</td>
+      <td>${groupName ? esc(groupName) : '<span class="mut">manual</span>'}</td>
+      <td class="mut">${esc(groupIps)}</td>
+      <td>${esc(r.destination_name)}</td>
+      <td class="mut">${esc(r.prefix)}</td>
+      <td class="mut">${esc(r.tech_prefix || '')}</td>
+      <td class="right">${rate(r.cost_rate_cents, c0)}<div class="mut">${esc(cycle(r.billing_cycle))}</div></td>
+      <td>${r.active ? '<span class="badge on">активен</span>' : '<span class="badge off">резерв</span>'}</td>
+      <td class="right">
+        ${r.active ? '' : `<button class="small" onclick="activateRoute(${r.id})">Сделать активным</button> `}
+        <button class="small danger" onclick="delRoute(${r.id})">✕</button>
+      </td>
+    </tr>`; }).join('') || emptyRow(9);
+
+  document.getElementById('t-rates').innerHTML = d.client_rates.map(r => {
+    const cur = (clientMap[r.client_id]||{}).currency || '';
+    const label = r.terminator_name
+      ? [r.terminator_name, r.terminator_tech_prefix ? `TP ${r.terminator_tech_prefix}` : '', `buy ${rate(r.terminator_cost_rate_cents, cur)} ${cycle(r.terminator_billing_cycle)}`].filter(Boolean).join(' · ')
+      : '— (активный)';
+    return `<tr>
+      <td>${esc(r.client_name)}</td>
+      <td>${r.terminator_name ? esc(label) : '<span class="mut">— (активный)</span>'}</td>
+      <td>${esc(r.destination_name)}</td>
+      <td class="mut">${r.client_tech_prefix ? esc(r.client_tech_prefix) : '—'}</td>
+      <td class="mut">${esc(r.prefix)}</td>
+      <td class="right">${rate(r.sell_rate_cents, cur)}<div class="mut">${esc(cycle(r.billing_cycle))}</div></td>
+      <td class="right"><button class="small danger" onclick="delRate(${r.id})">✕</button></td>
+    </tr>`; }).join('') || emptyRow(7);
+
+  const stageName = s => ({
+    received: 'получили',
+    client_lookup: 'IP не найден',
+    client_status: 'клиент выключен',
+    client_rate: 'нет тарифа',
+    terminator: 'нет терминатора',
+    gateway: 'нет gateway/IP',
+    balance: 'баланс',
+    reserved: 'готово'
+  })[s] || s || '';
+
+  document.getElementById('t-hits').innerHTML = (d.sip_hits || []).map(x => {
+    const ok = x.status === 'allowed';
+    const cls = ok ? 'allowed-hit' : 'rejected-hit';
+    const statusBadge = ok
+      ? '<span class="badge on">принят</span>'
+      : '<span class="badge badge-bad">отказ</span>';
+    const ipPort = `${x.sip_ip || ''}${x.sip_port ? ':' + x.sip_port : ''}`;
+    const outRoute = x.gateway_name || (x.route_ip ? 'direct ' + x.route_ip : '');
+    const reason = [stageName(x.stage), x.reason].filter(Boolean).join(' · ');
+    return `<tr class="${cls}">
+      <td class="mut">${val(x.created_at)}</td>
+      <td>${val(ipPort)}</td>
+      <td>${val(x.clid)}</td>
+      <td>${val(x.destination)}</td>
+      <td class="wrap">${val(x.client_name)}</td>
+      <td>${val(x.client_tech_prefix)}</td>
+      <td>${val(x.dial_destination)}</td>
+      <td>${statusBadge}</td>
+      <td class="wrap">${val(reason)}</td>
+      <td class="wrap">${val(x.terminator_name)}</td>
+      <td class="wrap">${val(outRoute || x.provider_number)}</td>
+      <td class="wrap">${val(x.sip_call_id)}</td>
+      <td class="wrap">${val(x.user_agent)}</td>
+    </tr>`;
+  }).join('') || emptyRow(13);
+
+  document.getElementById('t-cdr').innerHTML = d.cdr.map(x => {
+    const client = clientMap[x.client_id] || {};
+    const cur = x.client_currency || client.currency || '';
+    const inboundName = x.client_name || client.name || ('#' + x.client_id);
+    const inboundIp = x.sip_ip || x.client_sip_ip || client.sip_ip || '';
+    const outAccount = x.terminator_name || x.gateway_name || '';
+    const outNumber = x.provider_number || x.dial_destination || x.destination || '';
+    const hangup = x.result || x.bridge_hangup_cause || x.hangup_cause || (x.billsec > 0 ? 'Normal' : 'Rejected');
+    const isGood = x.billsec > 0 || String(hangup).toLowerCase() === 'normal';
+    const initiator = isGood || x.bridge_hangup_cause ? 'Терминатор' : 'Switch';
+    const scheme = x.gateway_name ? 'CLI' : (x.route_ip ? 'direct IP' : '—');
+    return `<tr class="${isGood ? 'good-call' : 'bad-call'}">
+      <td class="wrap">${val(inboundName)}</td>
+      <td>${val(inboundIp)}</td>
+      <td>${val(x.clid)}</td>
+      <td>${val(x.client_tech_prefix)}</td>
+      <td>${val(x.destination)}</td>
+      <td class="right">${rate(x.sell_rate_cents, cur)}</td>
+      <td class="wrap">${val(outAccount)}</td>
+      <td>${val(x.terminator_tech_prefix)}</td>
+      <td>${val(outNumber)}</td>
+      <td class="right">${rate(x.cost_rate_cents, cur)}</td>
+      <td class="wrap">${val(x.terminator_destination_name)}</td>
+      <td>${val(scheme)}</td>
+      <td class="wrap">${val(hangup)}</td>
+      <td>${val(initiator)}</td>
+      <td class="right">${x.billsec}</td>
+      <td class="right">${money(x.charged_cents, cur)}</td>
+      <td class="right">${money(x.margin_cents, cur)}</td>
+      <td class="mut">${val(x.started_at)}</td>
+    </tr>`; }).join('') || emptyRow(18);
+  if (status) {
+    status.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru-RU', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+  } catch (err) {
+    console.error(err);
+    if (status) status.textContent = 'ошибка обновления';
+  } finally {
+    loadInFlight = false;
+  }
+}
+
+// ---- создание клиента ----
+document.getElementById('client-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    await api('/api/clients', 'POST', {
+      name: document.getElementById('cl-name').value,
+      sip_ip: document.getElementById('cl-ip').value,
+      currency: document.getElementById('cl-cur').value || 'USD',
+      balance_cents: inputMoneyUnits('cl-bal', 'Баланс')
+    });
+    clientDlg.close(); e.target.reset(); load();
+  } catch (err) { alert('Ошибка: ' + err.message); }
+});
+
+// ---- создание группы ----
+document.getElementById('group-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    await api('/api/termination-groups', 'POST', {
+      name: document.getElementById('gr-name').value,
+      ips: document.getElementById('gr-ips').value,
+      gateway_name: document.getElementById('gr-gw').value || '',
+      active: document.getElementById('gr-active').checked
+    });
+    groupDlg.close(); e.target.reset(); load();
+  } catch (err) { alert('Ошибка: ' + err.message); }
+});
+
+// ---- создание терминатора ----
+function openTermDlg() {
+  const sel = document.getElementById('rt-group');
+  sel.innerHTML = groupList.map(g => `<option value="${g.id}">${esc(g.name)} · ${esc(g.ips || g.gateway_name || '')}</option>`).join('');
+  if (!sel.innerHTML) { alert('Сначала создайте терминационную группу'); return; }
+  syncBillingCycle('rt-dest', 'rt-prefix', 'rt-billing-cycle');
+  routeDlg.showModal();
+}
+function fillDirectionPrefix(directionInputId, prefixInputId, force = false) {
+  const direction = document.getElementById(directionInputId).value.trim();
+  const prefixInput = document.getElementById(prefixInputId);
+  const match = directionMap[direction];
+  if (match && (force || !prefixInput.value.trim())) {
+    prefixInput.value = match.primary_prefix;
+  }
+}
+document.getElementById('route-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    await api('/api/terminators', 'POST', {
+      name: document.getElementById('rt-name').value,
+      gateway_group_id: parseInt(document.getElementById('rt-group').value),
+      ips: '',
+      destination_name: document.getElementById('rt-dest').value,
+      prefix: document.getElementById('rt-prefix').value,
+      gateway_name: '',
+      tech_prefix: document.getElementById('rt-tech').value || '',
+      cost_rate_cents: inputMoneyUnits('rt-cost', 'Закупка'),
+      billing_cycle: document.getElementById('rt-billing-cycle').value,
+      active: document.getElementById('rt-active').checked
+    });
+    routeDlg.close(); e.target.reset(); load();
+  } catch (err) { alert('Ошибка: ' + err.message); }
+});
+
+// ---- создание тарифа ----
+function openRateDlg() {
+  const sel = document.getElementById('ra-client');
+  sel.innerHTML = Object.values(clientMap).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  if (!sel.innerHTML) { alert('Сначала создайте оригинатора'); return; }
+  const ts = document.getElementById('ra-term');
+  const cur = (Object.values(clientMap)[0]||{}).currency || '';
+  ts.innerHTML = termList.map(t => `<option value="${t.id}">${esc(termLabel(t, cur))}</option>`).join('');
+  if (!ts.innerHTML) { alert('Сначала создайте терминатор'); return; }
+  syncBillingCycle('ra-dest', 'ra-prefix', 'ra-billing-cycle');
+  rateDlg.showModal();
+}
+document.getElementById('rt-dest').addEventListener('change', () => { fillDirectionPrefix('rt-dest', 'rt-prefix', true); syncBillingCycle('rt-dest', 'rt-prefix', 'rt-billing-cycle'); });
+document.getElementById('rt-prefix').addEventListener('input', () => syncBillingCycle('rt-dest', 'rt-prefix', 'rt-billing-cycle'));
+document.getElementById('ra-dest').addEventListener('change', () => { fillDirectionPrefix('ra-dest', 'ra-prefix', true); syncBillingCycle('ra-dest', 'ra-prefix', 'ra-billing-cycle'); });
+document.getElementById('ra-prefix').addEventListener('input', () => syncBillingCycle('ra-dest', 'ra-prefix', 'ra-billing-cycle'));
+document.getElementById('di-dest').addEventListener('change', () => { fillDirectionPrefix('di-dest', 'di-prefix', true); syncBillingCycle('di-dest', 'di-prefix', 'di-billing-cycle'); });
+document.getElementById('di-prefix').addEventListener('input', () => syncBillingCycle('di-dest', 'di-prefix', 'di-billing-cycle'));
+document.getElementById('rate-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    await api('/api/client-rates', 'POST', {
+      client_id: parseInt(document.getElementById('ra-client').value),
+      terminator_id: parseInt(document.getElementById('ra-term').value),
+      client_tech_prefix: document.getElementById('ra-client-tech').value || '',
+      destination_name: document.getElementById('ra-dest').value,
+      prefix: document.getElementById('ra-prefix').value,
+      sell_rate_cents: inputMoneyUnits('ra-sell', 'Продажа'),
+      billing_cycle: document.getElementById('ra-billing-cycle').value
+    });
+    rateDlg.close(); load();
+  } catch (err) { alert('Ошибка: ' + err.message); }
+});
+
+// ---- мастер направления ----
+function fillDirectionTerms() {
+  const activeTerms = termList.filter(t => t.active);
+  const ts = document.getElementById('di-term');
+  ts.innerHTML = activeTerms.map(t => {
+    const group = groupMap[t.gateway_group_id] || {};
+    const gw = t.gateway_name || group.gateway_name || group.ips || t.ips || 'без gateway/IP';
+    const cur = (Object.values(clientMap)[0]||{}).currency || '';
+    return `<option value="${t.id}">${esc(termLabel(t, cur))} · ${esc(gw)}</option>`;
+  }).join('');
+  return Boolean(ts.innerHTML);
+}
+
+function openDirectionDlg() {
+  const cs = document.getElementById('di-client');
+  cs.innerHTML = Object.values(clientMap).filter(c => c.active).map(c =>
+    `<option value="${c.id}">${esc(c.name)} · ${esc(c.sip_ip)}</option>`).join('');
+  if (!cs.innerHTML) { alert('Сначала создайте активного оригинатора'); return; }
+  if (!fillDirectionTerms()) { alert('Сначала создайте активного терминатора'); return; }
+  document.getElementById('di-dest').value = '';
+  document.getElementById('di-prefix').value = '';
+  document.getElementById('di-client-tech').value = '';
+  document.getElementById('di-sell').value = '';
+  syncBillingCycle('di-dest', 'di-prefix', 'di-billing-cycle');
+  document.getElementById('di-test-number').value = '';
+  showDirectionPreview(null);
+  directionDlg.showModal();
+}
+
+function directionPayload() {
+  return {
+    client_id: parseInt(document.getElementById('di-client').value),
+    terminator_id: parseInt(document.getElementById('di-term').value),
+    destination_name: document.getElementById('di-dest').value.trim(),
+    prefix: document.getElementById('di-prefix').value.trim(),
+    client_tech_prefix: document.getElementById('di-client-tech').value.trim(),
+    sell_rate_cents: inputMoneyUnits('di-sell', 'Продажа'),
+    billing_cycle: document.getElementById('di-billing-cycle').value
+  };
+}
+
+function showDirectionPreview(p) {
+  const box = document.getElementById('di-preview');
+  if (!p) { box.style.display = 'none'; box.className = 'check'; box.innerHTML = ''; return; }
+  box.style.display = 'block';
+  box.className = `check ${p.ok ? 'ok' : 'bad'}`;
+  if (!p.ok) {
+    box.innerHTML = `<div class="title">Проверка не прошла</div><div class="line">${esc(p.message || 'Ошибка маршрута')}</div>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="title">Цепочка готова</div>
+    <div class="line">Вход: ${esc(p.input_destination)}</div>
+    <div class="line">После клиентского техпрефикса: ${esc(p.dial_destination)}</div>
+    <div class="line">К терминатору: ${esc(p.provider_number)}</div>
+    <div class="line">Выход: ${esc(p.dial_string)}</div>`;
+}
+
+async function checkDirection() {
+  const p = directionPayload();
+  if (!p.client_id || !p.terminator_id || !p.prefix) { alert('Заполните оригинатора, терминатора и префикс'); return; }
+  const testNumber = document.getElementById('di-test-number').value.trim();
+  try {
+    const result = await api('/api/route-check', 'POST', {
+      client_id: p.client_id,
+      terminator_id: p.terminator_id,
+      prefix: p.prefix,
+      client_tech_prefix: p.client_tech_prefix,
+      destination: testNumber || undefined
+    });
+    showDirectionPreview(result);
+  } catch (err) { alert('Ошибка: ' + err.message); }
+}
+
+document.getElementById('direction-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const p = directionPayload();
+  if (!p.destination_name || !p.prefix || p.sell_rate_cents <= 0) {
+    alert('Заполните направление, префикс и цену продажи');
+    return;
+  }
+  try {
+    const result = await api('/api/directions', 'POST', p);
+    showDirectionPreview(result.preview);
+    await load();
+  } catch (err) { alert('Ошибка: ' + err.message); }
+});
+
+// ---- пополнение ----
+function openTopup(id) {
+  topupClientId = id;
+  document.getElementById('tu-client').value = (clientMap[id]||{}).name || ('#'+id);
+  document.getElementById('tu-amount').value = '';
+  topupDlg.showModal();
+}
+document.getElementById('topup-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    await api(`/api/clients/${topupClientId}/topup`, 'POST',
+      { amount_cents: inputMoneyUnits('tu-amount', 'Сумма пополнения') });
+    topupDlg.close(); load();
+  } catch (err) { alert('Ошибка: ' + err.message); }
+});
+
+// ---- действия с роутами/тарифами ----
+async function delGroup(id) { if(!confirm('Удалить группу?'))return; try { await api(`/api/termination-groups/${id}`,'DELETE'); load(); } catch(e){ alert(e.message);} }
+async function activateRoute(id) { try { await api(`/api/terminators/${id}/activate`,'POST'); load(); } catch(e){ alert(e.message);} }
+async function delRoute(id) { if(!confirm('Удалить терминатор?'))return; try { await api(`/api/terminators/${id}`,'DELETE'); load(); } catch(e){ alert(e.message);} }
+async function delRate(id) { if(!confirm('Удалить тариф?'))return; try { await api(`/api/client-rates/${id}`,'DELETE'); load(); } catch(e){ alert(e.message);} }
+
+load();
+setInterval(() => load(), 5000);
+
+document.getElementById('ai-form').addEventListener('submit', e => {
+  e.preventDefault();
+  askAi();
+});
+</script>
+</body>
+</html>

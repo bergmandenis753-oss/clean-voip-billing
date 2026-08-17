@@ -1,0 +1,17 @@
+[Unit]
+Description=VoIP billing passive SIP packet collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=PYTHONUNBUFFERED=1
+Environment=BILLING_API=http://127.0.0.1:8080
+Environment=BILLING_API_KEY_FILE=/etc/freeswitch/billing_api_key
+Environment=VOIP_LOCAL_IPS=127.0.0.1
+ExecStart=/usr/bin/python3 /usr/local/sbin/billing-pcap-collector.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
