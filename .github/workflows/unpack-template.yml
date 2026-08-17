@@ -1,0 +1,40 @@
+name: Unpack clean template
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - clean-voip-billing-template.tar.gz.b64
+      - .github/workflows/unpack-template.yml
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Unpack clean template
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f clean-voip-billing-template.tar.gz.b64 ]; then
+            echo "Archive marker is absent, nothing to unpack."
+            exit 0
+          fi
+          mkdir -p /tmp/clean-template
+          base64 -d clean-voip-billing-template.tar.gz.b64 | tar -xzf - -C /tmp/clean-template
+          rsync -a --delete --exclude '.git' /tmp/clean-template/clean-voip-billing/ ./
+          rm -f clean-voip-billing-template.tar.gz.b64
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Unpack clean VoIP billing template"
+          git push
